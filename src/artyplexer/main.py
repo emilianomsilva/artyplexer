@@ -14,7 +14,7 @@ def main():
     # High DPI & Wayland / X11 compatibility
     QCoreApplication.setOrganizationName("Artyplexer")
     QCoreApplication.setApplicationName("artyplexer")
-    QGuiApplication.setDesktopFileName("artyplexer.desktop")
+    QGuiApplication.setDesktopFileName("artyplexer")
 
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
