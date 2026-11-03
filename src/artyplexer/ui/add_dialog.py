@@ -1,7 +1,7 @@
 import uuid
 from typing import Optional
 from PySide6.QtCore import Qt, Signal, QByteArray
-from PySide6.QtGui import QColor, QPainter, QPixmap
+from PySide6.QtGui import QColor, QPainter, QPixmap, QIcon
 from PySide6.QtWidgets import (
     QDialog,
     QVBoxLayout,
@@ -66,8 +66,8 @@ class AddServiceDialog(QDialog):
         super().__init__(parent)
         self.editing_service = editing_service
         self.setWindowTitle("Edit Service" if editing_service else "Add New Service")
-        self.setMinimumSize(500, 470)
-        self.resize(540, 500)
+        self.setMinimumSize(480, 420)
+        self.resize(520, 460)
         self.setStyleSheet("""
             QDialog {
                 background-color: #1e1f29;
@@ -90,6 +90,14 @@ class AddServiceDialog(QDialog):
             QLineEdit:focus, QComboBox:focus {
                 border: 1px solid #38bdf8;
             }
+            QComboBox QAbstractItemView {
+                background-color: #232530;
+                color: #ffffff;
+                selection-background-color: #3b82f6;
+                selection-color: #ffffff;
+                border: 1px solid #3b3f54;
+                padding: 4px;
+            }
             QPushButton {
                 border-radius: 6px;
                 padding: 8px 16px;
@@ -111,33 +119,19 @@ class AddServiceDialog(QDialog):
         layout.addWidget(title)
 
         if not self.editing_service:
-            # Preset selector buttons
-            preset_label = QLabel("Choose a preset template:")
+            # Preset selector dropdown
+            preset_label = QLabel("Template Preset:")
             layout.addWidget(preset_label)
 
-            preset_layout = QGridLayout()
-            preset_layout.setSpacing(8)
-            for idx, p in enumerate(PRESETS):
-                btn = QPushButton(p["name"])
-                btn.setCursor(Qt.CursorShape.PointingHandCursor)
-                btn.setStyleSheet("""
-                    QPushButton {
-                        background-color: #262938;
-                        border: 1px solid #3b3f54;
-                        color: #e2e8f0;
-                        padding: 6px 10px;
-                        font-size: 12px;
-                    }
-                    QPushButton:hover {
-                        background-color: #33384c;
-                        border-color: #38bdf8;
-                    }
-                """)
-                btn.clicked.connect(lambda _, preset=p: self._apply_preset(preset))
-                row = idx // 4
-                col = idx % 4
-                preset_layout.addWidget(btn, row, col)
-            layout.addLayout(preset_layout)
+            self.preset_combo = QComboBox()
+            for p in PRESETS:
+                icon_path = ICONS_DIR / f"{p['icon_type']}.svg"
+                if not icon_path.exists():
+                    icon_path = ICONS_DIR / "generic.svg"
+                self.preset_combo.addItem(QIcon(str(icon_path)), p["name"], p)
+
+            self.preset_combo.currentIndexChanged.connect(self._on_preset_dropdown_changed)
+            layout.addWidget(self.preset_combo)
 
         # Fields
         layout.addWidget(QLabel("Service Name (e.g. WhatsApp Personal):"))
@@ -335,6 +329,11 @@ class AddServiceDialog(QDialog):
             renderer.render(painter)
         painter.end()
         self.preview_label.setPixmap(pixmap)
+
+    def _on_preset_dropdown_changed(self, index: int):
+        preset = self.preset_combo.itemData(index)
+        if preset:
+            self._apply_preset(preset)
 
     def _apply_preset(self, preset):
         self.name_input.setText(preset["name"])
