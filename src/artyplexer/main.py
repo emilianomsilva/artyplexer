@@ -1,7 +1,7 @@
 import sys
 import signal
 from PySide6.QtCore import Qt, QCoreApplication
-from PySide6.QtGui import QIcon
+from PySide6.QtGui import QIcon, QGuiApplication
 from PySide6.QtWidgets import QApplication
 from artyplexer.config import ConfigManager, ICONS_DIR
 from artyplexer.ui.main_window import MainWindow
@@ -13,14 +13,18 @@ def main():
 
     # High DPI & Wayland / X11 compatibility
     QCoreApplication.setOrganizationName("Artyplexer")
-    QCoreApplication.setApplicationName("Artyplexer")
+    QCoreApplication.setApplicationName("artyplexer")
+    QGuiApplication.setDesktopFileName("artyplexer.desktop")
 
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     app.setQuitOnLastWindowClosed(False)
 
     # Set Application Icon
-    app_icon = QIcon(str(ICONS_DIR / "app.svg"))
+    icon_path = ICONS_DIR / "app.png"
+    if not icon_path.exists():
+        icon_path = ICONS_DIR / "app.svg"
+    app_icon = QIcon(str(icon_path))
     app.setWindowIcon(app_icon)
 
     # Initialize configuration
