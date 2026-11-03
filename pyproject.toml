@@ -1,0 +1,24 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "artyplexer"
+version = "0.1.0"
+description = "Lightweight Ferdium alternative for WhatsApp, Telegram, and messaging tools built with PySide6 (Qt6 WebEngine)."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "PySide6>=6.6.0",
+]
+
+[project.scripts]
+artyplexer = "artyplexer.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/artyplexer"]
+
+[dependency-groups]
+dev = [
+    "pyinstaller>=6.0.0",
+]
