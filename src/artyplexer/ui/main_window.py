@@ -217,6 +217,9 @@ class MainWindow(QMainWindow):
         self.config_manager.save()
         self.tray.set_services(self.config_manager.services, service_id)
 
+        # Ensure window is visible and activated when service is selected
+        self.show_and_activate()
+
     def _on_service_unread_changed(self, service_id: str, count: int):
         prev_count = self.unread_map.get(service_id, 0)
         self.unread_map[service_id] = count
@@ -347,15 +350,15 @@ class MainWindow(QMainWindow):
             self.showFullScreen()
 
     def show_and_activate(self):
-        if self.isMinimized():
-            self.showNormal()
+        self.setWindowState(self.windowState() & ~Qt.WindowState.WindowMinimized)
+        self.setVisible(True)
         self.show()
-        self.setWindowState((self.windowState() & ~Qt.WindowState.WindowMinimized) | Qt.WindowState.WindowActive)
+        self.showNormal()
         self.raise_()
         self.activateWindow()
 
     def _toggle_window_visibility(self):
-        if self.isVisible() and not self.isMinimized():
+        if self.isVisible() and not self.isMinimized() and self.isActiveWindow():
             self.hide()
         else:
             self.show_and_activate()

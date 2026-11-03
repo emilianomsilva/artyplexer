@@ -35,7 +35,11 @@ class ArtyplexerTray(QSystemTrayIcon):
         self.app_svg = QSvgRenderer(str(ICONS_DIR / "app.svg"))
         self._update_icon()
 
-        self._create_menu()
+        # Persistent menu: keep the same QMenu object so DBus menu exporter never drops actions
+        self.menu = QMenu()
+        self.setContextMenu(self.menu)
+        self._populate_menu()
+
         self.activated.connect(self._on_activated)
 
     def _update_icon(self):
@@ -68,8 +72,8 @@ class ArtyplexerTray(QSystemTrayIcon):
         painter.end()
         self.setIcon(QIcon(pixmap))
 
-    def _create_menu(self):
-        self.menu = QMenu()
+    def _populate_menu(self):
+        self.menu.clear()
         self.menu.setStyleSheet("""
             QMenu {
                 background-color: #232530;
@@ -124,22 +128,20 @@ class ArtyplexerTray(QSystemTrayIcon):
         quit_act = self.menu.addAction("Quit Artyplexer")
         quit_act.triggered.connect(self.quit_requested.emit)
 
-        self.setContextMenu(self.menu)
-
     def set_services(self, services: List[ServiceConfig], active_id: Optional[str]):
         self.services = services
         self.active_service_id = active_id
-        self._create_menu()
+        self._populate_menu()
 
     def set_total_unread(self, count: int):
         if self.total_unread != count:
             self.total_unread = count
             self._update_icon()
-            self._create_menu()
+            self._populate_menu()
 
     def set_global_dnd(self, enabled: bool):
         self.global_dnd = enabled
-        self._create_menu()
+        self._populate_menu()
 
     def _on_activated(self, reason):
         if reason == QSystemTrayIcon.ActivationReason.Trigger:

@@ -18,7 +18,11 @@ def main():
     # Handle Ctrl+C in terminal
     signal.signal(signal.SIGINT, signal.SIG_DFL)
 
-    # High DPI & Wayland / X11 compatibility
+    # Use xcb (XWayland) on Linux for full system tray, focus & window restore support
+    if "QT_QPA_PLATFORM" not in os.environ and os.name == "posix":
+        os.environ["QT_QPA_PLATFORM"] = "xcb"
+
+    # High DPI & desktop integration
     QCoreApplication.setOrganizationName("Artyplexer")
     QCoreApplication.setApplicationName("artyplexer")
     QGuiApplication.setDesktopFileName("artyplexer")
