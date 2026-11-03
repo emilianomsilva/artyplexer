@@ -66,8 +66,8 @@ class AddServiceDialog(QDialog):
         super().__init__(parent)
         self.editing_service = editing_service
         self.setWindowTitle("Edit Service" if editing_service else "Add New Service")
-        self.setMinimumSize(480, 420)
-        self.resize(520, 460)
+        self.setMinimumSize(500, 500)
+        self.resize(540, 540)
         self.setStyleSheet("""
             QDialog {
                 background-color: #1e1f29;
@@ -112,11 +112,12 @@ class AddServiceDialog(QDialog):
     def _init_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 20, 24, 20)
-        layout.setSpacing(14)
+        layout.setSpacing(6)
 
         title = QLabel("Service Configuration")
         title.setStyleSheet("font-size: 16px; font-weight: bold; color: #ffffff;")
         layout.addWidget(title)
+        layout.addSpacing(6)
 
         if not self.editing_service:
             # Preset selector dropdown
@@ -132,17 +133,20 @@ class AddServiceDialog(QDialog):
 
             self.preset_combo.currentIndexChanged.connect(self._on_preset_dropdown_changed)
             layout.addWidget(self.preset_combo)
+            layout.addSpacing(16)
 
         # Fields
         layout.addWidget(QLabel("Service Name (e.g. WhatsApp Personal):"))
         self.name_input = QLineEdit()
         self.name_input.setPlaceholderText("Name / Identifier")
         layout.addWidget(self.name_input)
+        layout.addSpacing(12)
 
         layout.addWidget(QLabel("Service URL:"))
         self.url_input = QLineEdit()
         self.url_input.setPlaceholderText("https://...")
         layout.addWidget(self.url_input)
+        layout.addSpacing(12)
 
         layout.addWidget(QLabel("Icon Type & Color:"))
         icon_row = QHBoxLayout()
@@ -164,6 +168,7 @@ class AddServiceDialog(QDialog):
         self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         icon_row.addWidget(self.preview_label)
         layout.addLayout(icon_row)
+        layout.addSpacing(16)
 
         # Color presets
         layout.addWidget(QLabel("Icon Color (Differentiate between accounts):"))
@@ -225,6 +230,7 @@ class AddServiceDialog(QDialog):
         color_row.addWidget(self.custom_color_btn)
         color_row.addStretch()
         layout.addLayout(color_row)
+        layout.addSpacing(10)
 
         self.notif_check = QCheckBox("Enable desktop notifications for this service")
         self.notif_check.setChecked(True)
