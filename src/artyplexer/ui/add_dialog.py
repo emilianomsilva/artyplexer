@@ -42,6 +42,16 @@ PRESETS = [
         "icon_type": "slack",
     },
     {
+        "name": "YouTube",
+        "url": "https://www.youtube.com",
+        "icon_type": "youtube",
+    },
+    {
+        "name": "Spotify",
+        "url": "https://open.spotify.com",
+        "icon_type": "spotify",
+    },
+    {
         "name": "Custom",
         "url": "https://",
         "icon_type": "generic",
@@ -105,9 +115,9 @@ class AddServiceDialog(QDialog):
             preset_label = QLabel("Choose a preset template:")
             layout.addWidget(preset_label)
 
-            preset_layout = QHBoxLayout()
+            preset_layout = QGridLayout()
             preset_layout.setSpacing(8)
-            for p in PRESETS:
+            for idx, p in enumerate(PRESETS):
                 btn = QPushButton(p["name"])
                 btn.setCursor(Qt.CursorShape.PointingHandCursor)
                 btn.setStyleSheet("""
@@ -124,7 +134,9 @@ class AddServiceDialog(QDialog):
                     }
                 """)
                 btn.clicked.connect(lambda _, preset=p: self._apply_preset(preset))
-                preset_layout.addWidget(btn)
+                row = idx // 4
+                col = idx % 4
+                preset_layout.addWidget(btn, row, col)
             layout.addLayout(preset_layout)
 
         # Fields
@@ -145,6 +157,8 @@ class AddServiceDialog(QDialog):
         self.icon_combo.addItem("Telegram", "telegram")
         self.icon_combo.addItem("Discord", "discord")
         self.icon_combo.addItem("Slack", "slack")
+        self.icon_combo.addItem("YouTube", "youtube")
+        self.icon_combo.addItem("Spotify", "spotify")
         self.icon_combo.addItem("Generic / Browser", "generic")
         self.icon_combo.currentIndexChanged.connect(self._update_icon_preview)
         icon_row.addWidget(self.icon_combo, stretch=1)
@@ -164,10 +178,12 @@ class AddServiceDialog(QDialog):
 
         self.color_swatches = [
             ("#25D366", "WhatsApp Green"),
-            ("#3b82f6", "Blue"),
-            ("#8b5cf6", "Purple"),
+            ("#1DB954", "Spotify Green"),
+            ("#FF0000", "YouTube Red"),
+            ("#229ED9", "Telegram Blue"),
+            ("#5865F2", "Discord Blurple"),
             ("#f97316", "Orange"),
-            ("#f43f5e", "Red"),
+            ("#8b5cf6", "Purple"),
             ("#06b6d4", "Teal"),
             ("#eab308", "Yellow"),
             ("#64748b", "Slate"),
@@ -306,7 +322,7 @@ class AddServiceDialog(QDialog):
 
         content = icon_path.read_text(encoding="utf-8")
         if self.selected_color:
-            for default_color in ["#25D366", "#229ED9", "#5865F2", "#4A154B", "#334155"]:
+            for default_color in ["#25D366", "#229ED9", "#5865F2", "#4A154B", "#FF0000", "#1DB954", "#334155"]:
                 if default_color.lower() in content.lower():
                     content = content.replace(default_color, self.selected_color).replace(default_color.lower(), self.selected_color)
                     break
@@ -328,10 +344,16 @@ class AddServiceDialog(QDialog):
             self.icon_combo.setCurrentIndex(idx)
         if preset["icon_type"] == "whatsapp":
             self._select_color("#25D366")
+        elif preset["icon_type"] == "spotify":
+            self._select_color("#1DB954")
+        elif preset["icon_type"] == "youtube":
+            self._select_color("#FF0000")
         elif preset["icon_type"] == "telegram":
             self._select_color("#229ED9")
         elif preset["icon_type"] == "discord":
             self._select_color("#5865F2")
+        elif preset["icon_type"] == "slack":
+            self._select_color("#4A154B")
         else:
             self._select_color("#3b82f6")
 

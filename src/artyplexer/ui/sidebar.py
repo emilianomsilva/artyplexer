@@ -35,7 +35,7 @@ def create_svg_renderer(icon_type: str, custom_color: Optional[str] = None) -> Q
         content = icon_path.read_text(encoding="utf-8")
         if custom_color:
             # Match brand color fills in SVG icons
-            for default_color in ["#25D366", "#229ED9", "#5865F2", "#4A154B", "#334155"]:
+            for default_color in ["#25D366", "#229ED9", "#5865F2", "#4A154B", "#FF0000", "#1DB954", "#334155"]:
                 if default_color.lower() in content.lower():
                     content = content.replace(default_color, custom_color).replace(default_color.lower(), custom_color)
                     break
