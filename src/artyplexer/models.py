@@ -43,6 +43,7 @@ class AppSettings:
     minimize_to_tray: bool = True
     start_minimized: bool = False
     global_dnd: bool = False
+    is_maximized: bool = False
     last_active_service_id: Optional[str] = None
     window_width: int = 1200
     window_height: int = 800
@@ -56,6 +57,7 @@ class AppSettings:
             minimize_to_tray=data.get("minimize_to_tray", True),
             start_minimized=data.get("start_minimized", False),
             global_dnd=data.get("global_dnd", False),
+            is_maximized=data.get("is_maximized", False),
             last_active_service_id=data.get("last_active_service_id"),
             window_width=data.get("window_width", 1200),
             window_height=data.get("window_height", 800),

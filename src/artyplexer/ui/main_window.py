@@ -1,5 +1,5 @@
 from typing import Dict, Optional
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, QEvent
 from PySide6.QtGui import QKeySequence, QShortcut, QIcon, QCloseEvent
 from PySide6.QtWidgets import (
     QApplication,
@@ -51,7 +51,7 @@ class MainWindow(QMainWindow):
                 initial_id = self.config_manager.services[0].id
 
         if initial_id:
-            self.switch_service(initial_id)
+            self.switch_service(initial_id, bring_to_front=False)
 
     def _init_ui(self):
         central_widget = QWidget(self)
@@ -144,7 +144,7 @@ class MainWindow(QMainWindow):
         return view
 
     def _connect_sidebar_signals(self):
-        self.sidebar.service_selected.connect(self.switch_service)
+        self.sidebar.service_selected.connect(lambda s_id: self.switch_service(s_id, bring_to_front=False))
         self.sidebar.service_reload_requested.connect(self._reload_service)
         self.sidebar.service_mute_toggled.connect(self._toggle_service_mute)
         self.sidebar.service_edit_requested.connect(self._edit_service)
@@ -166,7 +166,7 @@ class MainWindow(QMainWindow):
         self.tray.show_window_requested.connect(self.show_and_activate)
         self.tray.hide_window_requested.connect(self.hide)
         self.tray.toggle_window_requested.connect(self._toggle_window_visibility)
-        self.tray.service_selected.connect(self.switch_service)
+        self.tray.service_selected.connect(lambda s_id: self.switch_service(s_id, bring_to_front=True))
         self.tray.toggle_dnd_requested.connect(self._toggle_global_dnd)
         self.tray.settings_requested.connect(self._open_settings_dialog)
         self.tray.quit_requested.connect(self._force_quit)
@@ -192,9 +192,9 @@ class MainWindow(QMainWindow):
     def _switch_by_index(self, index: int):
         if 0 <= index < len(self.config_manager.services):
             svc_id = self.config_manager.services[index].id
-            self.switch_service(svc_id)
+            self.switch_service(svc_id, bring_to_front=False)
 
-    def switch_service(self, service_id: str):
+    def switch_service(self, service_id: str, bring_to_front: bool = False):
         if service_id not in self.views:
             return
 
@@ -217,8 +217,9 @@ class MainWindow(QMainWindow):
         self.config_manager.save()
         self.tray.set_services(self.config_manager.services, service_id)
 
-        # Ensure window is visible and activated when service is selected
-        self.show_and_activate()
+        # Only bring window to front when explicitly requested (e.g. from tray menu)
+        if bring_to_front:
+            self.show_and_activate()
 
     def _on_service_unread_changed(self, service_id: str, count: int):
         prev_count = self.unread_map.get(service_id, 0)
@@ -273,7 +274,7 @@ class MainWindow(QMainWindow):
         self._create_service_view(service)
         self.sidebar.refresh_services(self.config_manager.services, self.active_service_id)
         self.tray.set_services(self.config_manager.services, self.active_service_id)
-        self.switch_service(service.id)
+        self.switch_service(service.id, bring_to_front=False)
 
     def _edit_service(self, service_id: str):
         svc = next((s for s in self.config_manager.services if s.id == service_id), None)
@@ -320,7 +321,7 @@ class MainWindow(QMainWindow):
         self.tray.set_services(remaining, next_id)
 
         if next_id:
-            self.switch_service(next_id)
+            self.switch_service(next_id, bring_to_front=False)
         else:
             self.active_service_id = None
             self.service_title_label.setText("No services configured")
@@ -343,17 +344,32 @@ class MainWindow(QMainWindow):
         self.sidebar.set_global_dnd(self.settings.global_dnd)
         self.tray.set_global_dnd(self.settings.global_dnd)
 
+    def changeEvent(self, event):
+        if event.type() == QEvent.Type.WindowStateChange:
+            if not self.isMinimized():
+                self.settings.is_maximized = self.isMaximized()
+        super().changeEvent(event)
+
     def _toggle_fullscreen(self):
         if self.isFullScreen():
-            self.showNormal()
+            if self.settings.is_maximized:
+                self.showMaximized()
+            else:
+                self.showNormal()
         else:
             self.showFullScreen()
 
     def show_and_activate(self):
+        was_max = (
+            self.isMaximized()
+            or bool(self.windowState() & Qt.WindowState.WindowMaximized)
+            or self.settings.is_maximized
+        )
         self.setWindowState(self.windowState() & ~Qt.WindowState.WindowMinimized)
-        self.setVisible(True)
-        self.show()
-        self.showNormal()
+        if was_max:
+            self.showMaximized()
+        else:
+            self.showNormal()
         self.raise_()
         self.activateWindow()
 
@@ -365,8 +381,11 @@ class MainWindow(QMainWindow):
 
     def _force_quit(self):
         self._is_quitting = True
-        self.settings.window_width = self.width()
-        self.settings.window_height = self.height()
+        if not self.isMinimized():
+            self.settings.is_maximized = self.isMaximized()
+        if not self.isMaximized():
+            self.settings.window_width = self.width()
+            self.settings.window_height = self.height()
         self.config_manager.save()
         self.tray.hide()
         QApplication.quit()
@@ -377,6 +396,12 @@ class MainWindow(QMainWindow):
             return
 
         if self.settings.minimize_to_tray:
+            if not self.isMinimized():
+                self.settings.is_maximized = self.isMaximized()
+            if not self.isMaximized():
+                self.settings.window_width = self.width()
+                self.settings.window_height = self.height()
+            self.config_manager.save()
             event.ignore()
             self.hide()
             if not self.has_shown_tray_hint:
@@ -386,10 +411,5 @@ class MainWindow(QMainWindow):
                 )
                 self.has_shown_tray_hint = True
         else:
-            self._is_quitting = True
-            self.settings.window_width = self.width()
-            self.settings.window_height = self.height()
-            self.config_manager.save()
-            self.tray.hide()
+            self._force_quit()
             event.accept()
-            QApplication.quit()

@@ -80,7 +80,10 @@ def main():
     server.newConnection.connect(on_new_connection)
 
     if not config_mgr.settings.start_minimized:
-        window.show()
+        if config_mgr.settings.is_maximized:
+            window.showMaximized()
+        else:
+            window.show()
 
     # Ensure tray icon is visible
     window.tray.show()
