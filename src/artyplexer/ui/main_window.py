@@ -347,10 +347,12 @@ class MainWindow(QMainWindow):
             self.showFullScreen()
 
     def show_and_activate(self):
+        if self.isMinimized():
+            self.showNormal()
         self.show()
-        self.setWindowState(self.windowState() & ~Qt.WindowState.WindowMinimized | Qt.WindowState.WindowActive)
-        self.activateWindow()
+        self.setWindowState((self.windowState() & ~Qt.WindowState.WindowMinimized) | Qt.WindowState.WindowActive)
         self.raise_()
+        self.activateWindow()
 
     def _toggle_window_visibility(self):
         if self.isVisible() and not self.isMinimized():
