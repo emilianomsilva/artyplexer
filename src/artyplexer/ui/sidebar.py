@@ -1,10 +1,10 @@
-from pathlib import Path
 from typing import Dict, List, Optional
 from PySide6.QtCore import Qt, Signal, QRect, QRectF, QPoint, QByteArray
 from PySide6.QtGui import (
     QPainter,
     QColor,
     QIcon,
+    QPixmap,
     QFont,
     QPen,
     QBrush,
@@ -18,12 +18,12 @@ from PySide6.QtWidgets import (
     QPushButton,
     QMenu,
     QFrame,
-    QSizePolicy,
     QColorDialog,
 )
 from PySide6.QtSvg import QSvgRenderer
 from artyplexer.models import ServiceConfig
 from artyplexer.config import ICONS_DIR
+from artyplexer.ui.theme import theme_colors
 
 
 def create_svg_renderer(icon_type: str, custom_color: Optional[str] = None) -> QSvgRenderer:
@@ -57,6 +57,7 @@ class ServiceButton(QPushButton):
         self.service = service
         self.is_active = is_active
         self.unread_count = 0
+        self.dark = True
         self.setFixedSize(68, 56)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setToolTip(f"{self.service.name}\n({self.service.url})")
@@ -80,6 +81,10 @@ class ServiceButton(QPushButton):
             self.unread_count = count
             self.update()
 
+    def apply_theme(self, dark: bool):
+        self.dark = dark
+        self.update()
+
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -89,17 +94,17 @@ class ServiceButton(QPushButton):
         
         if self.is_active:
             # Active background
-            painter.setBrush(QBrush(QColor("#2d3240")))
+            painter.setBrush(QBrush(QColor(theme_colors(self.dark)["active"])))
             painter.setPen(Qt.PenStyle.NoPen)
             painter.drawRoundedRect(icon_rect, 10, 10)
 
             # Left active indicator pill (Ferdium / Discord style)
             pill_rect = QRectF(0, 16, 3.5, 24)
-            painter.setBrush(QBrush(QColor("#ffffff")))
+            painter.setBrush(QBrush(QColor(theme_colors(self.dark)["accent"])))
             painter.drawRoundedRect(pill_rect, 1.75, 1.75)
         elif self.underMouse():
             # Hover background
-            painter.setBrush(QBrush(QColor("#262933")))
+            painter.setBrush(QBrush(QColor(theme_colors(self.dark)["surface_hover"])))
             painter.setPen(Qt.PenStyle.NoPen)
             painter.drawRoundedRect(icon_rect, 10, 10)
 
@@ -110,7 +115,7 @@ class ServiceButton(QPushButton):
 
         # 3. Muted icon indicator if service is muted
         if self.service.muted:
-            painter.setBrush(QBrush(QColor("#181920")))
+            painter.setBrush(QBrush(QColor(theme_colors(self.dark)["panel"])))
             painter.setPen(QPen(QColor("#ef4444"), 1.5))
             painter.drawEllipse(QPoint(50, 44), 5, 5)
 
@@ -134,7 +139,7 @@ class ServiceButton(QPushButton):
 
             # Shadow / Border
             painter.setBrush(QBrush(QColor("#ef4444")))
-            painter.setPen(QPen(QColor("#181920"), 1.5))
+            painter.setPen(QPen(QColor(theme_colors(self.dark)["panel"]), 1.5))
             painter.drawRoundedRect(badge_rect, badge_height / 2.0, badge_height / 2.0)
 
             # Centered Text
@@ -150,22 +155,23 @@ class ServiceButton(QPushButton):
 
     def contextMenuEvent(self, event: QContextMenuEvent):
         menu = QMenu(self)
-        menu.setStyleSheet("""
-            QMenu {
-                background-color: #232530;
-                color: #e2e8f0;
-                border: 1px solid #333846;
+        c = theme_colors(self.dark)
+        menu.setStyleSheet(f"""
+            QMenu {{
+                background-color: {c['panel']};
+                color: {c['text']};
+                border: 1px solid {c['border']};
                 border-radius: 6px;
                 padding: 4px;
-            }
-            QMenu::item {
+            }}
+            QMenu::item {{
                 padding: 6px 20px;
                 border-radius: 4px;
-            }
-            QMenu::item:selected {
-                background-color: #3b82f6;
-                color: #ffffff;
-            }
+            }}
+            QMenu::item:selected {{
+                background-color: {c['selection']};
+                color: {c['selection_text']};
+            }}
         """)
 
         reload_act = QAction(f"Reload {self.service.name}", self)
@@ -226,7 +232,7 @@ class Sidebar(QWidget):
         main_layout.setSpacing(4)
 
         # Style Sidebar container
-        self.setStyleSheet("background-color: #181920;")
+        self.dark = True
 
         # Scroll area for services
         self.scroll_area = QScrollArea()
@@ -252,7 +258,7 @@ class Sidebar(QWidget):
         # Bottom actions separator
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setStyleSheet("background-color: #2d3240; max-height: 1px; margin: 4px 10px;")
+        self.separator = sep
         main_layout.addWidget(sep)
 
         # Bottom Actions: Add (+), DND (Bell), Settings (Gear)
@@ -268,29 +274,65 @@ class Sidebar(QWidget):
         self.settings_btn.clicked.connect(self.settings_requested.emit)
         main_layout.addWidget(self.settings_btn)
 
+    def _themed_icon(self, icon_name: str) -> QIcon:
+        icon_path = ICONS_DIR / icon_name
+        try:
+            content = icon_path.read_text(encoding="utf-8")
+            content = content.replace("#94a3b8", theme_colors(self.dark)["muted"])
+            renderer = QSvgRenderer(QByteArray(content.encode("utf-8")))
+            pixmap = QPixmap(64, 64)
+            pixmap.fill(Qt.GlobalColor.transparent)
+            painter = QPainter(pixmap)
+            renderer.render(painter)
+            painter.end()
+            return QIcon(pixmap)
+        except Exception:
+            return QIcon(str(icon_path))
+
     def _create_bottom_button(self, icon_name: str, tooltip: str) -> QPushButton:
         btn = QPushButton()
         btn.setFixedSize(68, 44)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setToolTip(tooltip)
-        icon_path = ICONS_DIR / icon_name
-        btn.setIcon(QIcon(str(icon_path)))
+        btn.setIcon(self._themed_icon(icon_name))
         btn.setIconSize(btn.size() * 0.45)
-        btn.setStyleSheet("""
-            QPushButton {
+        c = theme_colors(self.dark)
+        btn.setStyleSheet(f"""
+            QPushButton {{
                 background-color: transparent;
                 border: none;
                 border-radius: 8px;
-            }
-            QPushButton:hover {
-                background-color: #262933;
-            }
+            }}
+            QPushButton:hover {{
+                background-color: {c['surface_hover']};
+            }}
         """)
         return btn
+
+    def apply_theme(self, dark: bool):
+        self.dark = dark
+        c = theme_colors(dark)
+        self.setStyleSheet(f"background-color: {c['panel']};")
+        self.separator.setStyleSheet(
+            f"background-color: {c['separator']}; max-height: 1px; margin: 4px 10px;"
+        )
+        for button in self.buttons.values():
+            button.apply_theme(dark)
+        for button in (self.add_btn, self.dnd_btn, self.settings_btn):
+            button.setStyleSheet(f"""
+                QPushButton {{ background-color: transparent; border: none; border-radius: 8px; }}
+                QPushButton:hover {{ background-color: {c['surface_hover']}; }}
+            """)
+        self.add_btn.setIcon(self._themed_icon("plus.svg"))
+        self.dnd_btn.setIcon(
+            self._themed_icon("bell-slash.svg" if self.global_dnd else "bell.svg")
+        )
+        self.settings_btn.setIcon(self._themed_icon("settings.svg"))
 
     def _add_service_button(self, service: ServiceConfig):
         is_active = (service.id == self.active_id)
         btn = ServiceButton(service, is_active=is_active)
+        btn.apply_theme(self.dark)
         btn.service_selected.connect(self.service_selected.emit)
         btn.service_reload_requested.connect(self.service_reload_requested.emit)
         btn.service_mute_toggled.connect(self.service_mute_toggled.emit)
@@ -318,7 +360,7 @@ class Sidebar(QWidget):
         self.global_dnd = enabled
         icon_name = "bell-slash.svg" if enabled else "bell.svg"
         tooltip = "Do Not Disturb enabled (Click to unmute)" if enabled else "Do Not Disturb mode (Mute all)"
-        self.dnd_btn.setIcon(QIcon(str(ICONS_DIR / icon_name)))
+        self.dnd_btn.setIcon(self._themed_icon(icon_name))
         self.dnd_btn.setToolTip(tooltip)
 
     def refresh_services(self, services: List[ServiceConfig], active_id: Optional[str]):

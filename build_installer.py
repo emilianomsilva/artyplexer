@@ -12,7 +12,6 @@ from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parent
 DIST_DIR = ROOT_DIR / "dist"
-BUILD_DIR = ROOT_DIR / "build"
 RESOURCES_DIR = ROOT_DIR / "resources"
 
 

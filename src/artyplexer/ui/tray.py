@@ -1,5 +1,5 @@
-from typing import Dict, List, Optional
-from PySide6.QtCore import Qt, Signal, QRectF, QPoint
+from typing import List, Optional
+from PySide6.QtCore import Qt, Signal, QRectF
 from PySide6.QtGui import (
     QIcon,
     QPixmap,
@@ -8,17 +8,15 @@ from PySide6.QtGui import (
     QFont,
     QPen,
     QBrush,
-    QAction,
 )
 from PySide6.QtWidgets import QSystemTrayIcon, QMenu
 from PySide6.QtSvg import QSvgRenderer
 from artyplexer.models import ServiceConfig
 from artyplexer.config import ICONS_DIR
+from artyplexer.ui.theme import theme_colors
 
 
 class ArtyplexerTray(QSystemTrayIcon):
-    show_window_requested = Signal()
-    hide_window_requested = Signal()
     toggle_window_requested = Signal()
     service_selected = Signal(str)
     toggle_dnd_requested = Signal()
@@ -31,6 +29,7 @@ class ArtyplexerTray(QSystemTrayIcon):
         self.global_dnd = False
         self.services: List[ServiceConfig] = []
         self.active_service_id: Optional[str] = None
+        self.dark = True
         
         self.app_svg = QSvgRenderer(str(ICONS_DIR / "app.svg"))
         self._update_icon()
@@ -74,22 +73,23 @@ class ArtyplexerTray(QSystemTrayIcon):
 
     def _populate_menu(self):
         self.menu.clear()
-        self.menu.setStyleSheet("""
-            QMenu {
-                background-color: #232530;
-                color: #e2e8f0;
-                border: 1px solid #333846;
+        c = theme_colors(self.dark)
+        self.menu.setStyleSheet(f"""
+            QMenu {{
+                background-color: {c['panel']};
+                color: {c['text']};
+                border: 1px solid {c['border']};
                 border-radius: 6px;
                 padding: 4px;
-            }
-            QMenu::item {
+            }}
+            QMenu::item {{
                 padding: 6px 20px;
                 border-radius: 4px;
-            }
-            QMenu::item:selected {
-                background-color: #3b82f6;
-                color: #ffffff;
-            }
+            }}
+            QMenu::item:selected {{
+                background-color: {c['selection']};
+                color: {c['selection_text']};
+            }}
         """)
 
         # Title
@@ -131,6 +131,10 @@ class ArtyplexerTray(QSystemTrayIcon):
     def set_services(self, services: List[ServiceConfig], active_id: Optional[str]):
         self.services = services
         self.active_service_id = active_id
+        self._populate_menu()
+
+    def apply_theme(self, dark: bool):
+        self.dark = dark
         self._populate_menu()
 
     def set_total_unread(self, count: int):

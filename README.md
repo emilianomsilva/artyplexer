@@ -1,47 +1,52 @@
 # Artyplexer
 
-> Alternativa leve e moderna ao Ferdium, focada no WhatsApp, Telegram e ferramentas de mensagens.
+> A lightweight, modern multiplexer alternative for WhatsApp, Telegram, and web messaging services, built with Python, PySide6, and Chromium (Qt6 WebEngine).
 
-Construído em Python com **PySide6** e motor **Chromium (Qt6 WebEngine)**.
+---
 
-## Características
+## Features
 
-- **Múltiplas instâncias do WhatsApp**: Execute contas pessoais, de trabalho e de suporte no mesmo app sem conflito de cookies ou sessões.
-- **Isolamento total de perfis**: Cada serviço tem sua própria pasta em `~/.local/share/artyplexer/profiles/` com cookies e LocalStorage persistentes.
-- **Aparência inspirada no Ferdium**: Barra lateral escura, moderna e compacta com indicador de serviço ativo e badges de mensagens não lidas.
-- **Bandeja do Sistema (System Tray)**:
-  - Ícone dinâmico com contador de não lidas.
-  - Menu de contexto rápido para alternar entre contas, ativar Não Perturbe ou fechar.
-  - Minimizar para a bandeja ao fechar janela.
-- **Sistema de Notificações**: Notificações nativas do sistema operacional ao receber novas mensagens.
-- **Atalhos Rápidos**:
-  - `Ctrl+1` a `Ctrl+9`: Alternar entre contas e serviços.
-  - `Ctrl+N`: Adicionar novo serviço.
-  - `Ctrl+R`: Recarregar serviço atual.
-  - `F11`: Alternar tela cheia.
-- **Compilável como Instalador / Binário Único**: Script pronto com PyInstaller para empacotar em um executável nativo.
+- **Multi-Account & Multi-Instance**: Run multiple WhatsApp, Telegram, or custom web services simultaneously without session conflicts.
+- **Isolated Profiles**: Strict data and session separation per service in `~/.local/share/artyplexer/profiles/`.
+- **Integrated Download Manager**: Seamless support for chat exports, media, and document downloads with direct saving to `~/Downloads` (or custom folder) and completion notifications.
+- **Adaptive Dark/Light Theme**: Seamlessly detects and syncs with system themes across Linux desktops (GNOME, KDE, XDG Portals), with manual override options.
+- **System Tray Integration**:
+  - Dynamic tray icon with unread message badges.
+  - Global Do Not Disturb toggle.
+  - Minimize-to-tray behavior on window close.
+- **Native Desktop Notifications**: Integrated desktop alerts for incoming messages.
+- **Fast Keyboard Shortcuts**:
+  - `Ctrl+1` – `Ctrl+9`: Switch between accounts/services.
+  - `Ctrl+N`: Add a new service.
+  - `Ctrl+R`: Reload active service.
+  - `F11`: Toggle fullscreen.
+- **Resource Efficient**: Ultra-low idle memory footprint compared to Electron-based wrappers.
 
-## Instalação e Desenvolvimento com UV
+---
+
+## Installation & Development
+
+Artyplexer uses [`uv`](https://github.com/astral-sh/uv) for fast and reliable dependency management:
 
 ```bash
-# 1. Criar ambiente virtual com Python 3.12 (ou 3.11)
+# 1. Create a virtual environment (Python 3.10+)
 uv venv --python 3.12 .venv
 
-# 2. Instalar dependências em modo editável
+# 2. Install dependencies in editable mode
 uv pip install -e .
 
-# 3. Executar o Artyplexer
-.venv/bin/artyplexer
-# ou
+# 3. Launch Artyplexer
 uv run artyplexer
 ```
 
-## Como Compilar como Executável / Instalador
+---
 
-Para gerar um binário independente que não precisa do Python instalado:
+## Build Standalone Executable
+
+To generate a standalone desktop binary and `.desktop` entry via PyInstaller:
 
 ```bash
-.venv/bin/python build_installer.py
+uv run python build_installer.py
 ```
 
-O executável final estará pronto em `dist/artyplexer/artyplexer`.
+The compiled binary will be placed in `dist/artyplexer/artyplexer`.

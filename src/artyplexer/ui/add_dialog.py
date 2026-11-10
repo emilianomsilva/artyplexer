@@ -11,13 +11,12 @@ from PySide6.QtWidgets import (
     QPushButton,
     QCheckBox,
     QComboBox,
-    QGridLayout,
-    QFrame,
     QColorDialog,
 )
 from PySide6.QtSvg import QSvgRenderer
-from artyplexer.models import ServiceConfig, DEFAULT_USER_AGENT
+from artyplexer.models import ServiceConfig
 from artyplexer.config import ICONS_DIR
+from artyplexer.ui.theme import theme_colors
 
 
 PRESETS = [
@@ -68,55 +67,102 @@ class AddServiceDialog(QDialog):
         self.setWindowTitle("Edit Service" if editing_service else "Add New Service")
         self.setMinimumSize(500, 500)
         self.resize(540, 540)
-        self.setStyleSheet("""
-            QDialog {
-                background-color: #1e1f29;
-                color: #e2e8f0;
-            }
-            QLabel {
-                color: #94a3b8;
+        self.dark = True
+
+        self._init_ui()
+        self.apply_theme(True)
+
+    def apply_theme(self, dark: bool):
+        self.dark = dark
+        c = theme_colors(dark)
+        chevron = (ICONS_DIR / "chevron-down.svg").as_posix()
+        self.setStyleSheet(f"""
+            QDialog {{
+                background-color: {c['panel']};
+                color: {c['text']};
+            }}
+            QLabel {{
+                color: {c['muted']};
                 font-size: 13px;
                 font-weight: 500;
-            }
-            QLineEdit, QComboBox {
-                background-color: #262938;
-                border: 1px solid #3b3f54;
+            }}
+            QLineEdit, QComboBox {{
+                background-color: {c['surface']};
+                border: 1px solid {c['border']};
                 border-radius: 6px;
                 padding: 6px 12px;
                 min-height: 24px;
-                color: #ffffff;
+                color: {c['text']};
                 font-size: 13px;
-            }
-            QLineEdit:focus, QComboBox:focus {
-                border: 1px solid #38bdf8;
-            }
-            QComboBox QAbstractItemView {
-                background-color: #232530;
-                color: #ffffff;
-                selection-background-color: #3b82f6;
-                selection-color: #ffffff;
-                border: 1px solid #3b3f54;
+            }}
+            QLineEdit:focus, QComboBox:focus {{
+                border: 1px solid {c['accent']};
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                width: 26px;
+            }}
+            QComboBox::down-arrow {{
+                image: url("{chevron}");
+                width: 14px;
+                height: 14px;
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: {c['panel']};
+                color: {c['text']};
+                selection-background-color: {c['selection']};
+                selection-color: {c['selection_text']};
+                border: 1px solid {c['border']};
                 padding: 4px;
-            }
-            QPushButton {
+            }}
+            QPushButton {{
                 border-radius: 6px;
                 padding: 8px 16px;
                 min-height: 22px;
                 font-weight: bold;
                 font-size: 13px;
-            }
+            }}
         """)
-
-        self._init_ui()
+        self.title_label.setStyleSheet(
+            f"font-size: 16px; font-weight: bold; color: {c['text']};"
+        )
+        self.preview_label.setStyleSheet(
+            f"background-color: {c['window']}; border-radius: 8px; border: 1px solid {c['border']};"
+        )
+        self.custom_color_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {c['surface']};
+                border: 1px solid {c['border']};
+                color: {c['text']};
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-size: 11px;
+            }}
+            QPushButton:hover {{
+                border-color: {c['accent']};
+                color: {c['text']};
+            }}
+        """)
+        self.notif_check.setStyleSheet(f"color: {c['text']}; margin-top: 6px;")
+        self.cancel_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                border: 1px solid {c['border']};
+                color: {c['text']};
+            }}
+            QPushButton:hover {{
+                background-color: {c['surface_hover']};
+            }}
+        """)
+        self._select_color(self.selected_color)
 
     def _init_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 20, 24, 20)
         layout.setSpacing(6)
 
-        title = QLabel("Service Configuration")
-        title.setStyleSheet("font-size: 16px; font-weight: bold; color: #ffffff;")
-        layout.addWidget(title)
+        self.title_label = QLabel("Service Configuration")
+        layout.addWidget(self.title_label)
         layout.addSpacing(6)
 
         if not self.editing_service:
@@ -164,7 +210,6 @@ class AddServiceDialog(QDialog):
         # Icon Preview
         self.preview_label = QLabel()
         self.preview_label.setFixedSize(36, 36)
-        self.preview_label.setStyleSheet("background-color: #181920; border-radius: 8px; border: 1px solid #333846;")
         self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         icon_row.addWidget(self.preview_label)
         layout.addLayout(icon_row)
@@ -200,9 +245,14 @@ class AddServiceDialog(QDialog):
                     background-color: {hex_code};
                     border: 2px solid transparent;
                     border-radius: 13px;
+                    min-width: 22px;
+                    max-width: 22px;
+                    min-height: 22px;
+                    max-height: 22px;
+                    padding: 0;
                 }}
                 QPushButton:hover {{
-                    border-color: #ffffff;
+                    border-color: {theme_colors(self.dark)['text']};
                 }}
             """)
             c_btn.clicked.connect(lambda _, c=hex_code: self._select_color(c))
@@ -212,20 +262,6 @@ class AddServiceDialog(QDialog):
         # Custom color button
         self.custom_color_btn = QPushButton("Custom...")
         self.custom_color_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.custom_color_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #262938;
-                border: 1px solid #3b3f54;
-                color: #e2e8f0;
-                padding: 4px 8px;
-                border-radius: 4px;
-                font-size: 11px;
-            }
-            QPushButton:hover {
-                border-color: #38bdf8;
-                color: #ffffff;
-            }
-        """)
         self.custom_color_btn.clicked.connect(self._pick_custom_color)
         color_row.addWidget(self.custom_color_btn)
         color_row.addStretch()
@@ -234,7 +270,6 @@ class AddServiceDialog(QDialog):
 
         self.notif_check = QCheckBox("Enable desktop notifications for this service")
         self.notif_check.setChecked(True)
-        self.notif_check.setStyleSheet("color: #cbd5e1; margin-top: 6px;")
         layout.addWidget(self.notif_check)
 
         layout.addStretch()
@@ -243,19 +278,9 @@ class AddServiceDialog(QDialog):
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
 
-        cancel_btn = QPushButton("Cancel")
-        cancel_btn.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                border: 1px solid #475569;
-                color: #cbd5e1;
-            }
-            QPushButton:hover {
-                background-color: #334155;
-            }
-        """)
-        cancel_btn.clicked.connect(self.reject)
-        btn_layout.addWidget(cancel_btn)
+        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn.clicked.connect(self.reject)
+        btn_layout.addWidget(self.cancel_btn)
 
         save_btn = QPushButton("Save Service")
         save_btn.setStyleSheet("""
@@ -287,13 +312,19 @@ class AddServiceDialog(QDialog):
 
     def _select_color(self, hex_code: str):
         self.selected_color = hex_code
+        marker = theme_colors(getattr(self, "dark", True))["text"]
         for btn, h in self.color_buttons:
             if h.lower() == hex_code.lower():
                 btn.setStyleSheet(f"""
                     QPushButton {{
                         background-color: {h};
-                        border: 2px solid #ffffff;
+                        border: 2px solid {marker};
                         border-radius: 13px;
+                        min-width: 22px;
+                        max-width: 22px;
+                        min-height: 22px;
+                        max-height: 22px;
+                        padding: 0;
                     }}
                 """)
             else:
@@ -302,9 +333,14 @@ class AddServiceDialog(QDialog):
                         background-color: {h};
                         border: 2px solid transparent;
                         border-radius: 13px;
+                        min-width: 22px;
+                        max-width: 22px;
+                        min-height: 22px;
+                        max-height: 22px;
+                        padding: 0;
                     }}
                     QPushButton:hover {{
-                        border-color: #ffffff;
+                        border-color: {marker};
                     }}
                 """)
         self._update_icon_preview()

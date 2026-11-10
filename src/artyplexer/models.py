@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, asdict
 from typing import Optional, Dict, Any
 
 
@@ -47,6 +47,10 @@ class AppSettings:
     last_active_service_id: Optional[str] = None
     window_width: int = 1200
     window_height: int = 800
+    theme_mode: str = "system"
+    download_dir: Optional[str] = None
+    always_ask_download: bool = False
+    notify_download_complete: bool = True
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -61,4 +65,8 @@ class AppSettings:
             last_active_service_id=data.get("last_active_service_id"),
             window_width=data.get("window_width", 1200),
             window_height=data.get("window_height", 800),
+            theme_mode=data.get("theme_mode", "system"),
+            download_dir=data.get("download_dir"),
+            always_ask_download=data.get("always_ask_download", False),
+            notify_download_complete=data.get("notify_download_complete", True),
         )

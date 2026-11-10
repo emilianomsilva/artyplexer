@@ -1,12 +1,13 @@
 import sys
 import os
 import signal
-from PySide6.QtCore import Qt, QCoreApplication
+from PySide6.QtCore import QCoreApplication
 from PySide6.QtGui import QIcon, QGuiApplication
 from PySide6.QtWidgets import QApplication
 from PySide6.QtNetwork import QLocalSocket, QLocalServer
 from artyplexer.config import ConfigManager, ICONS_DIR
 from artyplexer.ui.main_window import MainWindow
+from artyplexer.ui.theme import ThemeManager
 
 
 def get_socket_name() -> str:
@@ -30,6 +31,9 @@ def main():
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     app.setQuitOnLastWindowClosed(False)
+
+    config_mgr = ConfigManager()
+    theme_manager = ThemeManager(app, config_mgr.settings.theme_mode)
 
     socket_name = get_socket_name()
 
@@ -59,10 +63,8 @@ def main():
     app.setWindowIcon(app_icon)
 
     # Initialize configuration
-    config_mgr = ConfigManager()
-
     # Create Main Window
-    window = MainWindow(config_mgr)
+    window = MainWindow(config_mgr, theme_manager)
 
     # Handle incoming requests from secondary instances
     def on_new_connection():

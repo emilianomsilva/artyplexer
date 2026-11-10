@@ -1,6 +1,6 @@
 import shutil
-from typing import List
-from PySide6.QtCore import Qt, Signal
+from pathlib import Path
+from PySide6.QtCore import Qt, Signal, QStandardPaths
 from PySide6.QtWidgets import (
     QDialog,
     QVBoxLayout,
@@ -8,14 +8,18 @@ from PySide6.QtWidgets import (
     QLabel,
     QPushButton,
     QCheckBox,
+    QComboBox,
+    QLineEdit,
+    QFileDialog,
     QTabWidget,
     QWidget,
     QListWidget,
     QListWidgetItem,
     QMessageBox,
 )
-from artyplexer.models import AppSettings, ServiceConfig
-from artyplexer.config import ConfigManager
+from artyplexer.models import AppSettings
+from artyplexer.config import ConfigManager, ICONS_DIR
+from artyplexer.ui.theme import theme_colors
 
 
 class SettingsDialog(QDialog):
@@ -29,51 +33,115 @@ class SettingsDialog(QDialog):
         self.setWindowTitle("Settings - Artyplexer")
         self.setMinimumSize(560, 480)
         self.resize(600, 520)
-        self.setStyleSheet("""
-            QDialog {
-                background-color: #1e1f29;
-                color: #e2e8f0;
-            }
-            QTabWidget::pane {
-                border: 1px solid #333846;
-                background-color: #181920;
+        self.dark = True
+
+        self._init_ui()
+        self.apply_theme(True)
+
+    def apply_theme(self, dark: bool):
+        self.dark = dark
+        c = theme_colors(dark)
+        chevron = (ICONS_DIR / "chevron-down.svg").as_posix()
+        self.setStyleSheet(f"""
+            QDialog {{
+                background-color: {c['panel']};
+                color: {c['text']};
+            }}
+            QLabel {{
+                color: {c['text']};
+            }}
+            QLineEdit {{
+                background-color: {c['surface']};
+                border: 1px solid {c['border']};
                 border-radius: 6px;
-            }
-            QTabBar::tab {
-                background-color: #262938;
-                color: #94a3b8;
+                padding: 6px 12px;
+                color: {c['text']};
+                font-size: 13px;
+            }}
+            QTabWidget::pane {{
+                border: 1px solid {c['border']};
+                background-color: {c['window']};
+                border-radius: 6px;
+            }}
+            QTabBar::tab {{
+                background-color: {c['surface']};
+                color: {c['muted']};
                 padding: 10px 18px;
                 border-top-left-radius: 6px;
                 border-top-right-radius: 6px;
                 margin-right: 2px;
                 font-weight: 500;
                 font-size: 13px;
-            }
-            QTabBar::tab:selected {
-                background-color: #181920;
-                color: #38bdf8;
+            }}
+            QTabBar::tab:selected {{
+                background-color: {c['window']};
+                color: {c['accent']};
                 font-weight: bold;
-            }
-            QCheckBox {
-                color: #e2e8f0;
+            }}
+            QCheckBox {{
+                color: {c['text']};
                 font-size: 13px;
                 spacing: 10px;
                 padding: 4px 0;
-            }
-            QPushButton {
-                background-color: #262938;
-                border: 1px solid #3b3f54;
-                color: #ffffff;
+            }}
+            QComboBox {{
+                background-color: {c['surface']};
+                border: 1px solid {c['border']};
+                border-radius: 6px;
+                padding: 6px 12px;
+                min-height: 22px;
+                color: {c['text']};
+                font-size: 13px;
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                width: 26px;
+            }}
+            QComboBox::down-arrow {{
+                image: url("{chevron}");
+                width: 14px;
+                height: 14px;
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: {c['panel']};
+                color: {c['text']};
+                selection-background-color: {c['selection']};
+                selection-color: {c['selection_text']};
+                border: 1px solid {c['border']};
+            }}
+            QPushButton {{
+                background-color: {c['surface']};
+                border: 1px solid {c['border']};
+                color: {c['text']};
                 padding: 8px 16px;
                 border-radius: 6px;
                 font-size: 13px;
-            }
-            QPushButton:hover {
-                background-color: #33384c;
-            }
+            }}
+            QPushButton:hover {{
+                background-color: {c['surface_hover']};
+            }}
         """)
-
-        self._init_ui()
+        self.service_list.setStyleSheet(f"""
+            QListWidget {{
+                background-color: {c['surface']};
+                border: 1px solid {c['border']};
+                border-radius: 6px;
+                color: {c['text']};
+                padding: 4px;
+            }}
+            QListWidget::item {{
+                padding: 8px;
+                border-bottom: 1px solid {c['separator']};
+            }}
+            QListWidget::item:selected {{
+                background-color: {c['selection']};
+                color: {c['selection_text']};
+            }}
+        """)
+        self.about_title.setStyleSheet(
+            f"font-size: 16px; font-weight: bold; color: {c['accent']};"
+        )
+        self.about_desc.setStyleSheet(f"color: {c['muted']}; font-size: 13px; line-height: 1.5;")
 
     def _init_ui(self):
         main_layout = QVBoxLayout(self)
@@ -100,10 +168,63 @@ class SettingsDialog(QDialog):
         self.dnd_check.setChecked(self.settings.global_dnd)
         gen_layout.addWidget(self.dnd_check)
 
+        gen_layout.addSpacing(10)
+        gen_layout.addWidget(QLabel("Appearance:"))
+        self.theme_combo = QComboBox()
+        self.theme_combo.addItem("Follow system", "system")
+        self.theme_combo.addItem("Light", "light")
+        self.theme_combo.addItem("Dark", "dark")
+        theme_index = self.theme_combo.findData(self.settings.theme_mode)
+        self.theme_combo.setCurrentIndex(max(0, theme_index))
+        gen_layout.addWidget(self.theme_combo)
+
         gen_layout.addStretch()
         tabs.addTab(general_tab, "General")
 
-        # Tab 2: Services
+        # Tab 2: Downloads
+        downloads_tab = QWidget()
+        dl_layout = QVBoxLayout(downloads_tab)
+        dl_layout.setContentsMargins(16, 16, 16, 16)
+        dl_layout.setSpacing(14)
+
+        dl_layout.addWidget(QLabel("Default download location:"))
+        path_row = QHBoxLayout()
+        path_row.setSpacing(8)
+
+        default_dl = (
+            self.settings.download_dir
+            or QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DownloadLocation)
+            or str(Path.home() / "Downloads")
+        )
+
+        self.dl_path_edit = QLineEdit(default_dl)
+        self.dl_path_edit.setReadOnly(True)
+        path_row.addWidget(self.dl_path_edit)
+
+        browse_btn = QPushButton("Browse...")
+        browse_btn.clicked.connect(self._browse_download_dir)
+        path_row.addWidget(browse_btn)
+
+        reset_btn = QPushButton("Reset")
+        reset_btn.setToolTip("Reset to system default Downloads folder")
+        reset_btn.clicked.connect(self._reset_download_dir)
+        path_row.addWidget(reset_btn)
+
+        dl_layout.addLayout(path_row)
+        dl_layout.addSpacing(10)
+
+        self.always_ask_check = QCheckBox("Always ask where to save each file before downloading")
+        self.always_ask_check.setChecked(self.settings.always_ask_download)
+        dl_layout.addWidget(self.always_ask_check)
+
+        self.notify_dl_check = QCheckBox("Show system notification when a download completes")
+        self.notify_dl_check.setChecked(self.settings.notify_download_complete)
+        dl_layout.addWidget(self.notify_dl_check)
+
+        dl_layout.addStretch()
+        tabs.addTab(downloads_tab, "Downloads")
+
+        # Tab 3: Services
         services_tab = QWidget()
         svc_layout = QVBoxLayout(services_tab)
         svc_layout.setContentsMargins(16, 16, 16, 16)
@@ -111,19 +232,6 @@ class SettingsDialog(QDialog):
 
         svc_layout.addWidget(QLabel("Active configured services:"))
         self.service_list = QListWidget()
-        self.service_list.setStyleSheet("""
-            QListWidget {
-                background-color: #262938;
-                border: 1px solid #333846;
-                border-radius: 6px;
-                color: #e2e8f0;
-                padding: 4px;
-            }
-            QListWidget::item {
-                padding: 8px;
-                border-bottom: 1px solid #2d3240;
-            }
-        """)
         for s in self.config_manager.services:
             item = QListWidgetItem(f"{s.name} ({s.url})")
             item.setData(Qt.ItemDataRole.UserRole, s.id)
@@ -149,19 +257,17 @@ class SettingsDialog(QDialog):
         about_layout.setContentsMargins(16, 16, 16, 16)
         about_layout.setSpacing(12)
 
-        about_title = QLabel("Artyplexer v0.1.0")
-        about_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #38bdf8;")
-        about_layout.addWidget(about_title)
+        self.about_title = QLabel("Artyplexer v0.1.0")
+        about_layout.addWidget(self.about_title)
 
-        about_desc = QLabel(
-            "Modern, fast, and ultra-lightweight Ferdium alternative.\n"
+        self.about_desc = QLabel(
+            "Simple, modern, fast, and ultra-lightweight multiplexer alternative.\n"
             "Built with Python, PySide6, and Chromium (Qt WebEngine).\n\n"
             "• Isolated sessions with QWebEngineProfile\n"
             "• Full compatibility with WhatsApp Web, Telegram, Discord\n"
             "• Low idle resource consumption without Electron overhead"
         )
-        about_desc.setStyleSheet("color: #94a3b8; font-size: 13px; line-height: 1.5;")
-        about_layout.addWidget(about_desc)
+        about_layout.addWidget(self.about_desc)
         about_layout.addStretch()
 
         tabs.addTab(about_tab, "About")
@@ -223,10 +329,35 @@ class SettingsDialog(QDialog):
             row = self.service_list.row(item)
             self.service_list.takeItem(row)
 
+    def _browse_download_dir(self):
+        current = self.dl_path_edit.text()
+        chosen = QFileDialog.getExistingDirectory(self, "Select Download Directory", current)
+        if chosen:
+            self.dl_path_edit.setText(chosen)
+
+    def _reset_download_dir(self):
+        default_dl = (
+            QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DownloadLocation)
+            or str(Path.home() / "Downloads")
+        )
+        self.dl_path_edit.setText(default_dl)
+
     def _save(self):
         self.settings.minimize_to_tray = self.tray_check.isChecked()
         self.settings.start_minimized = self.start_min_check.isChecked()
         self.settings.global_dnd = self.dnd_check.isChecked()
+        self.settings.theme_mode = self.theme_combo.currentData() or "system"
+
+        # Downloads settings
+        chosen_dl = self.dl_path_edit.text().strip()
+        default_dl = (
+            QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DownloadLocation)
+            or str(Path.home() / "Downloads")
+        )
+        self.settings.download_dir = chosen_dl if chosen_dl and chosen_dl != default_dl else None
+        self.settings.always_ask_download = self.always_ask_check.isChecked()
+        self.settings.notify_download_complete = self.notify_dl_check.isChecked()
+
         self.config_manager.settings = self.settings
         self.config_manager.save()
         self.settings_changed.emit(self.settings)

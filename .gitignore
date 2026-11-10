@@ -28,3 +28,6 @@ data/
 # IDE
 .vscode/
 .idea/
+
+# Codegraph
+.codegraph/

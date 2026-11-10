@@ -1,5 +1,7 @@
+import os
+from pathlib import Path
 from typing import Dict, Optional
-from PySide6.QtCore import Qt, QSize, QEvent
+from PySide6.QtCore import Qt, QEvent, QStandardPaths
 from PySide6.QtGui import QKeySequence, QShortcut, QIcon, QCloseEvent
 from PySide6.QtWidgets import (
     QApplication,
@@ -10,9 +12,10 @@ from PySide6.QtWidgets import (
     QStackedLayout,
     QLabel,
     QPushButton,
-    QFrame,
     QMessageBox,
+    QFileDialog,
 )
+from PySide6.QtWebEngineCore import QWebEngineDownloadRequest
 from artyplexer.config import ConfigManager, ICONS_DIR
 from artyplexer.models import ServiceConfig, AppSettings
 from artyplexer.ui.sidebar import Sidebar
@@ -20,18 +23,21 @@ from artyplexer.ui.service_view import ServiceView
 from artyplexer.ui.tray import ArtyplexerTray
 from artyplexer.ui.add_dialog import AddServiceDialog
 from artyplexer.ui.settings_dialog import SettingsDialog
+from artyplexer.ui.theme import theme_colors
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, config_manager: ConfigManager, parent=None):
+    def __init__(self, config_manager: ConfigManager, theme_manager, parent=None):
         super().__init__(parent)
         self.config_manager = config_manager
+        self.theme_manager = theme_manager
         self.settings = config_manager.settings
         
         self.views: Dict[str, ServiceView] = {}
         self.unread_map: Dict[str, int] = {}
         self.active_service_id: Optional[str] = None
         self.has_shown_tray_hint = False
+        self._active_downloads = set()
 
         self.setWindowTitle("Artyplexer")
         self.resize(self.settings.window_width, self.settings.window_height)
@@ -70,9 +76,8 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.sidebar)
 
         # 2. Right Content Area (Top bar + WebViews)
-        right_container = QWidget()
-        right_container.setStyleSheet("background-color: #111217;")
-        right_layout = QVBoxLayout(right_container)
+        self.right_container = QWidget()
+        right_layout = QVBoxLayout(self.right_container)
         right_layout.setContentsMargins(0, 0, 0, 0)
         right_layout.setSpacing(0)
 
@@ -80,36 +85,11 @@ class MainWindow(QMainWindow):
         self.header_bar = QWidget()
         self.header_bar.setMinimumHeight(40)
         self.header_bar.setMaximumHeight(48)
-        self.header_bar.setStyleSheet("""
-            QWidget {
-                background-color: #1e1f29;
-                border-bottom: 1px solid #282a36;
-            }
-            QLabel {
-                color: #94a3b8;
-                font-size: 13px;
-                font-weight: 500;
-            }
-            QPushButton {
-                background-color: transparent;
-                border: 1px solid #333846;
-                color: #cbd5e1;
-                padding: 4px 10px;
-                border-radius: 4px;
-                font-size: 12px;
-            }
-            QPushButton:hover {
-                background-color: #2b2e3d;
-                color: #ffffff;
-                border-color: #38bdf8;
-            }
-        """)
         header_layout = QHBoxLayout(self.header_bar)
         header_layout.setContentsMargins(12, 0, 12, 0)
         header_layout.setSpacing(8)
 
         self.service_title_label = QLabel("No service selected")
-        self.service_title_label.setStyleSheet("color: #e2e8f0; font-weight: bold;")
         header_layout.addWidget(self.service_title_label)
 
         header_layout.addStretch()
@@ -128,15 +108,44 @@ class MainWindow(QMainWindow):
             self._create_service_view(svc)
 
         right_layout.addLayout(self.stack)
-        main_layout.addWidget(right_container)
+        main_layout.addWidget(self.right_container)
 
         self.tray.set_services(self.config_manager.services, self.active_service_id)
+        self.theme_manager.changed.connect(self.apply_theme)
+        self.apply_theme(self.theme_manager.is_dark)
+
+    def apply_theme(self, dark: bool):
+        c = theme_colors(dark)
+        self.right_container.setStyleSheet(f"background-color: {c['window']};")
+        self.header_bar.setStyleSheet(f"""
+            QWidget {{ background-color: {c['panel']}; border-bottom: 1px solid {c['border']}; }}
+            QLabel {{ color: {c['muted']}; font-size: 13px; font-weight: 500; }}
+            QPushButton {{ background-color: transparent; border: 1px solid {c['border']};
+                color: {c['text']}; padding: 4px 10px; border-radius: 4px; font-size: 12px; }}
+            QPushButton:hover {{ background-color: {c['surface_hover']}; color: {c['text']};
+                border-color: {c['accent']}; }}
+        """)
+        self.service_title_label.setStyleSheet(f"color: {c['text']}; font-weight: bold;")
+        self.sidebar.apply_theme(dark)
+        self.tray.apply_theme(dark)
+        for dialog in self.findChildren(SettingsDialog) + self.findChildren(AddServiceDialog):
+            dialog.apply_theme(dark)
 
     def _create_service_view(self, service: ServiceConfig) -> ServiceView:
         profile_dir = self.config_manager.get_service_profile_dir(service.id)
         view = ServiceView(service, profile_dir=str(profile_dir))
+
+        target_dir = self.settings.download_dir or QStandardPaths.writableLocation(
+            QStandardPaths.StandardLocation.DownloadLocation
+        )
+        if target_dir:
+            view.profile.setDownloadPath(str(target_dir))
+
         view.unread_changed.connect(self._on_service_unread_changed)
         view.web_notification_received.connect(self._on_web_notification)
+        view.download_requested.connect(
+            lambda dl, s=service: self._handle_download_request(dl, s)
+        )
         
         self.stack.addWidget(view)
         self.views[service.id] = view
@@ -163,8 +172,6 @@ class MainWindow(QMainWindow):
                 break
 
     def _connect_tray_signals(self):
-        self.tray.show_window_requested.connect(self.show_and_activate)
-        self.tray.hide_window_requested.connect(self.hide)
         self.tray.toggle_window_requested.connect(self._toggle_window_visibility)
         self.tray.service_selected.connect(lambda s_id: self.switch_service(s_id, bring_to_front=True))
         self.tray.toggle_dnd_requested.connect(self._toggle_global_dnd)
@@ -266,6 +273,7 @@ class MainWindow(QMainWindow):
 
     def _open_add_dialog(self):
         dialog = AddServiceDialog(parent=self)
+        dialog.apply_theme(self.theme_manager.is_dark)
         dialog.service_created.connect(self._on_service_created)
         dialog.exec()
 
@@ -281,6 +289,7 @@ class MainWindow(QMainWindow):
         if not svc:
             return
         dialog = AddServiceDialog(editing_service=svc, parent=self)
+        dialog.apply_theme(self.theme_manager.is_dark)
         dialog.service_created.connect(self._on_service_updated)
         dialog.exec()
 
@@ -328,6 +337,7 @@ class MainWindow(QMainWindow):
 
     def _open_settings_dialog(self):
         dialog = SettingsDialog(self.config_manager, parent=self)
+        dialog.apply_theme(self.theme_manager.is_dark)
         dialog.settings_changed.connect(self._on_settings_changed)
         dialog.service_deleted.connect(self._remove_service_internal)
         dialog.exec()
@@ -336,6 +346,72 @@ class MainWindow(QMainWindow):
         self.settings = new_settings
         self.sidebar.set_global_dnd(self.settings.global_dnd)
         self.tray.set_global_dnd(self.settings.global_dnd)
+        self.theme_manager.set_mode(self.settings.theme_mode)
+
+        target_dir = self.settings.download_dir or QStandardPaths.writableLocation(
+            QStandardPaths.StandardLocation.DownloadLocation
+        )
+        if target_dir:
+            for view in self.views.values():
+                if hasattr(view, "profile"):
+                    view.profile.setDownloadPath(str(target_dir))
+
+    def _handle_download_request(self, download: QWebEngineDownloadRequest, service: ServiceConfig):
+        suggested_name = download.suggestedFileName() or download.downloadFileName() or "download"
+        default_dir = self.settings.download_dir or QStandardPaths.writableLocation(
+            QStandardPaths.StandardLocation.DownloadLocation
+        )
+        if not default_dir:
+            default_dir = str(Path.home() / "Downloads")
+
+        if self.settings.always_ask_download:
+            initial_path = os.path.join(default_dir, suggested_name)
+            file_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Salvar arquivo como...",
+                initial_path,
+            )
+            if file_path:
+                target_path = Path(file_path)
+                download.setDownloadDirectory(str(target_path.parent))
+                download.setDownloadFileName(target_path.name)
+                self._track_and_accept_download(download, service.name)
+            else:
+                download.cancel()
+        else:
+            os.makedirs(default_dir, exist_ok=True)
+            download.setDownloadDirectory(str(default_dir))
+            self._track_and_accept_download(download, service.name)
+
+    def _track_and_accept_download(self, download: QWebEngineDownloadRequest, service_name: str):
+        self._active_downloads.add(download)
+
+        def on_state_changed(state):
+            if state == QWebEngineDownloadRequest.DownloadState.DownloadCompleted:
+                if self.settings.notify_download_complete and not self.settings.global_dnd:
+                    fname = download.downloadFileName() or download.suggestedFileName()
+                    self.tray.notify(
+                        "Download concluído",
+                        f"{fname} foi salvo em {download.downloadDirectory()}."
+                    )
+                self._active_downloads.discard(download)
+            elif state == QWebEngineDownloadRequest.DownloadState.DownloadInterrupted:
+                if not self.settings.global_dnd:
+                    fname = download.downloadFileName() or download.suggestedFileName()
+                    reason = download.interruptReasonString()
+                    self.tray.notify(
+                        "Erro no download",
+                        f"Falha ao baixar {fname}: {reason}"
+                    )
+                self._active_downloads.discard(download)
+            elif state == QWebEngineDownloadRequest.DownloadState.DownloadCancelled:
+                self._active_downloads.discard(download)
+
+        download.stateChanged.connect(on_state_changed)
+        download.isFinishedChanged.connect(
+            lambda: self._active_downloads.discard(download) if download.isFinished() else None
+        )
+        download.accept()
 
     def _toggle_global_dnd(self):
         self.settings.global_dnd = not self.settings.global_dnd

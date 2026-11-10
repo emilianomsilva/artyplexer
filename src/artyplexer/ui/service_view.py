@@ -5,14 +5,15 @@ from PySide6.QtWebEngineCore import (
     QWebEngineProfile,
     QWebEnginePage,
     QWebEngineSettings,
+    QWebEngineDownloadRequest,
 )
 from artyplexer.models import ServiceConfig
 
 
 class ServiceView(QWebEngineView):
     unread_changed = Signal(str, int)  # service_id, unread_count
-    title_updated = Signal(str, str)   # service_id, title
     web_notification_received = Signal(str, str, str)  # service_id, title, message
+    download_requested = Signal(object)  # QWebEngineDownloadRequest
 
     def __init__(self, service: ServiceConfig, profile_dir: str, parent=None):
         super().__init__(parent)
@@ -32,6 +33,9 @@ class ServiceView(QWebEngineView):
 
         # Hook native web notifications from WhatsApp / Telegram
         self.profile.setNotificationPresenter(self._handle_web_notification)
+
+        # Hook file downloads (WhatsApp chat export, media, documents)
+        self.profile.downloadRequested.connect(self._handle_download_requested)
 
         # Enable modern web settings
         settings = self.profile.settings()
@@ -70,9 +74,10 @@ class ServiceView(QWebEngineView):
         except Exception as e:
             print(f"Error handling notification: {e}")
 
+    def _handle_download_requested(self, download: QWebEngineDownloadRequest):
+        self.download_requested.emit(download)
+
     def _on_title_changed(self, title: str):
-        self.title_updated.emit(self.service.id, title)
-        
         # Check for unread indicators, e.g. "(3) WhatsApp" or "(12) Telegram"
         match = re.search(r"\((\d+)\+?\)", title)
         new_count = int(match.group(1)) if match else 0

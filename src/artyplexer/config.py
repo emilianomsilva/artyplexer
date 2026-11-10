@@ -2,7 +2,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import List, Tuple
+from typing import List
 from PySide6.QtCore import QStandardPaths
 from artyplexer.models import ServiceConfig, AppSettings
 
