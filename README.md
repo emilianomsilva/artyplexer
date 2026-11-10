@@ -1,6 +1,22 @@
 # Artyplexer
 
-> A lightweight, modern multiplexer alternative for WhatsApp, Telegram, and web messaging services, built with Python, PySide6, and Chromium (Qt6 WebEngine).
+<p align="center">
+  <img src="resources/icons/app.svg" alt="Artyplexer Logo" width="88" height="88" />
+</p>
+
+<p align="center">
+  <strong>Lightweight, modern desktop multiplexer for WhatsApp, Telegram, and web messaging tools.</strong>
+  <br />
+  <em>Zero Electron overhead, native system integration, and fully isolated profile environments.</em>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python" />
+  <img src="https://img.shields.io/badge/Framework-PySide6%20%2F%20Qt6-41CD52?style=flat-square&logo=qt&logoColor=white" alt="PySide6" />
+  <img src="https://img.shields.io/badge/Engine-Chromium%20WebEngine-4285F4?style=flat-square&logo=googlechrome&logoColor=white" alt="Chromium" />
+  <img src="https://img.shields.io/badge/Package%20Manager-uv-DE5FE9?style=flat-square&logo=astral&logoColor=white" alt="uv" />
+  <img src="https://img.shields.io/badge/Platform-Linux-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux" />
+</p>
 
 ---
 
@@ -9,7 +25,7 @@
 - **Multi-Account & Multi-Instance**: Run multiple WhatsApp, Telegram, or custom web services simultaneously without session conflicts.
 - **Isolated Profiles**: Strict data and session separation per service in `~/.local/share/artyplexer/profiles/`.
 - **Integrated Download Manager**: Seamless support for chat exports, media, and document downloads with direct saving to `~/Downloads` (or custom folder) and completion notifications.
-- **Adaptive Dark/Light Theme**: Seamlessly detects and syncs with system themes across Linux desktops (GNOME, KDE, XDG Portals), with manual override options.
+- **Adaptive Dark/Light Theme**: Automatically detects and syncs with system themes across Linux desktops (GNOME, KDE, XDG Portals), with manual override options.
 - **System Tray Integration**:
   - Dynamic tray icon with unread message badges.
   - Global Do Not Disturb toggle.
@@ -21,6 +37,18 @@
   - `Ctrl+R`: Reload active service.
   - `F11`: Toggle fullscreen.
 - **Resource Efficient**: Ultra-low idle memory footprint compared to Electron-based wrappers.
+
+---
+
+## Tech Stack
+
+| Technology | Purpose |
+| :--- | :--- |
+| **[Python 3.10+](https://www.python.org/)** | Core application runtime & business logic |
+| **[PySide6 (Qt6)](https://wiki.qt.io/Qt_for_Python)** | Native desktop UI, windowing, and widgets |
+| **[QtWebEngine (Chromium)](https://doc.qt.io/qt-6/qtwebengine-index.html)** | Isolated web engine renderer & download pipeline |
+| **[uv](https://github.com/astral-sh/uv)** | Next-generation Python package and virtualenv management |
+| **[PyInstaller](https://pyinstaller.org/)** | Packaging into standalone executable binaries |
 
 ---
 
