@@ -25,6 +25,8 @@ jobs:
         run: uv sync --dev
 
       - name: Build binary with PyInstaller
+        env:
+          PYTHONUTF8: "1"
         run: uv run python build_installer.py
 
       - name: Package Linux archive
@@ -54,6 +56,8 @@ jobs:
         run: uv sync --dev
 
       - name: Build binary with PyInstaller
+        env:
+          PYTHONUTF8: "1"
         run: uv run python build_installer.py
 
       - name: Build Windows Installer (Inno Setup)
