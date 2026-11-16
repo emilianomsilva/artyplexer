@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Framework-PySide6%20%2F%20Qt6-41CD52?style=flat-square&logo=qt&logoColor=white" alt="PySide6" />
   <img src="https://img.shields.io/badge/Engine-Chromium%20WebEngine-4285F4?style=flat-square&logo=googlechrome&logoColor=white" alt="Chromium" />
   <img src="https://img.shields.io/badge/Package%20Manager-uv-DE5FE9?style=flat-square&logo=astral&logoColor=white" alt="uv" />
-  <img src="https://img.shields.io/badge/Platform-Linux-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux" />
+  <img src="https://img.shields.io/badge/Platform-Linux%20%7C%20Windows-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Platform" />
 </p>
 
 ---
@@ -69,12 +69,21 @@ uv run artyplexer
 
 ---
 
-## Build Standalone Executable
+## Build Standalone Executable & Installers
 
-To generate a standalone desktop binary and `.desktop` entry via PyInstaller:
+To generate a standalone desktop binary via PyInstaller (works on both **Linux** and **Windows**):
 
 ```bash
 uv run python build_installer.py
 ```
 
-The compiled binary will be placed in `dist/artyplexer/artyplexer`.
+- **Linux**: The compiled binary and `.desktop` entry will be placed in `dist/artyplexer/artyplexer` and `dist/artyplexer.desktop`.
+- **Windows**: The compiled executable will be placed in `dist/artyplexer/artyplexer.exe`. You can then compile `installer.iss` with [Inno Setup](https://jrsoftware.org/isinfo.php) to generate `dist/Artyplexer-Setup.exe`.
+
+Automated builds for both Linux and Windows are also configured in `.github/workflows/build.yml`.
+
+---
+
+## Disclaimer (No Digital Signature)
+
+Artyplexer is an open-source, vibecoded project and **does not include a paid digital code-signing certificate**. Because of this, operating systems (such as Windows SmartScreen) may display an "unrecognized app" or "unknown publisher" warning when running the installer or executable. You can inspect the full source code in this repository or build it yourself from source.

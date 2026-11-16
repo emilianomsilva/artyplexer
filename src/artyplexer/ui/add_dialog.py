@@ -1,4 +1,7 @@
 import uuid
+import urllib.request
+from urllib.parse import urlparse
+from pathlib import Path
 from typing import Optional
 from PySide6.QtCore import Qt, Signal, QByteArray
 from PySide6.QtGui import QColor, QPainter, QPixmap, QIcon
@@ -12,6 +15,7 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QColorDialog,
+    QMessageBox,
 )
 from PySide6.QtSvg import QSvgRenderer
 from artyplexer.models import ServiceConfig
@@ -41,14 +45,14 @@ PRESETS = [
         "icon_type": "slack",
     },
     {
-        "name": "YouTube",
-        "url": "https://www.youtube.com",
-        "icon_type": "youtube",
-    },
-    {
         "name": "Spotify",
         "url": "https://open.spotify.com",
         "icon_type": "spotify",
+    },
+    {
+        "name": "AppFlowy",
+        "url": "https://appflowy.com",
+        "icon_type": "appflowy",
     },
     {
         "name": "Custom",
@@ -189,10 +193,21 @@ class AddServiceDialog(QDialog):
         layout.addSpacing(12)
 
         layout.addWidget(QLabel("Service URL:"))
+        url_row = QHBoxLayout()
         self.url_input = QLineEdit()
         self.url_input.setPlaceholderText("https://...")
-        layout.addWidget(self.url_input)
+        url_row.addWidget(self.url_input, stretch=1)
+
+        self.fetch_icon_btn = QPushButton("Copiar Ícone")
+        self.fetch_icon_btn.setToolTip("Baixar o favicon do site informado")
+        self.fetch_icon_btn.clicked.connect(self._fetch_favicon)
+        url_row.addWidget(self.fetch_icon_btn)
+        layout.addLayout(url_row)
         layout.addSpacing(12)
+
+        self.custom_icon_path: Optional[str] = (
+            self.editing_service.custom_icon_path if self.editing_service else None
+        )
 
         layout.addWidget(QLabel("Icon Type & Color:"))
         icon_row = QHBoxLayout()
@@ -201,8 +216,8 @@ class AddServiceDialog(QDialog):
         self.icon_combo.addItem("Telegram", "telegram")
         self.icon_combo.addItem("Discord", "discord")
         self.icon_combo.addItem("Slack", "slack")
-        self.icon_combo.addItem("YouTube", "youtube")
         self.icon_combo.addItem("Spotify", "spotify")
+        self.icon_combo.addItem("AppFlowy", "appflowy")
         self.icon_combo.addItem("Generic / Browser", "generic")
         self.icon_combo.currentIndexChanged.connect(self._update_icon_preview)
         icon_row.addWidget(self.icon_combo, stretch=1)
@@ -223,7 +238,6 @@ class AddServiceDialog(QDialog):
         self.color_swatches = [
             ("#25D366", "WhatsApp Green"),
             ("#1DB954", "Spotify Green"),
-            ("#FF0000", "YouTube Red"),
             ("#229ED9", "Telegram Blue"),
             ("#5865F2", "Discord Blurple"),
             ("#f97316", "Orange"),
@@ -387,16 +401,65 @@ class AddServiceDialog(QDialog):
             self._select_color("#25D366")
         elif preset["icon_type"] == "spotify":
             self._select_color("#1DB954")
-        elif preset["icon_type"] == "youtube":
-            self._select_color("#FF0000")
         elif preset["icon_type"] == "telegram":
             self._select_color("#229ED9")
         elif preset["icon_type"] == "discord":
             self._select_color("#5865F2")
         elif preset["icon_type"] == "slack":
             self._select_color("#4A154B")
+        elif preset["icon_type"] == "appflowy":
+            self._select_color("#8B5CF6")
         else:
             self._select_color("#3b82f6")
+
+    def _fetch_favicon(self):
+        url = self.url_input.text().strip()
+        if not url or url == "https://":
+            QMessageBox.information(self, "Copiar Ícone", "Informe uma URL válida primeiro.")
+            return
+
+        if not url.startswith(("http://", "https://")):
+            url = f"https://{url}"
+
+        parsed = urlparse(url)
+        domain = parsed.netloc
+        if not domain:
+            QMessageBox.warning(self, "Copiar Ícone", "Não foi possível identificar o domínio da URL.")
+            return
+
+        icons_cache_dir = Path.home() / ".local" / "share" / "artyplexer" / "icons"
+        icons_cache_dir.mkdir(parents=True, exist_ok=True)
+        dest_path = icons_cache_dir / f"{domain.replace(':', '_')}_{uuid.uuid4().hex[:6]}.png"
+
+        candidates = [
+            f"https://www.google.com/s2/favicons?domain={domain}&sz=64",
+            f"{parsed.scheme}://{domain}/favicon.ico",
+        ]
+
+        for favicon_url in candidates:
+            try:
+                req = urllib.request.Request(
+                    favicon_url,
+                    headers={"User-Agent": "Mozilla/5.0"},
+                )
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    data = resp.read()
+                pix = QPixmap()
+                if pix.loadFromData(data) and not pix.isNull():
+                    pix.save(str(dest_path), "PNG")
+                    self.custom_icon_path = str(dest_path)
+                    self.preview_label.setPixmap(
+                        pix.scaled(32, 32, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                    )
+                    return
+            except Exception:
+                continue
+
+        QMessageBox.warning(
+            self,
+            "Copiar Ícone",
+            "Não foi possível baixar o ícone deste site. Você pode escolher um ícone padrão abaixo.",
+        )
 
     def _save(self):
         name = self.name_input.text().strip()
@@ -407,11 +470,37 @@ class AddServiceDialog(QDialog):
         if not name or not url:
             return
 
+        unsupported_domains = (
+            "youtube.com",
+            "youtu.be",
+            "netflix.com",
+            "twitch.tv",
+            "primevideo.com",
+            "disneyplus.com",
+            "hbomax.com",
+            "max.com",
+        )
+        lower_url = url.lower()
+        if any(domain in lower_url for domain in unsupported_domains):
+            reply = QMessageBox.warning(
+                self,
+                "Serviço não suportado",
+                "O Artyplexer é focado em mensageria e não oferece suporte oficial para "
+                "plataformas de vídeo ou streaming (como YouTube, Netflix, Twitch, etc.).\n\n"
+                "Esses serviços podem apresentar falhas de reprodução por falta de DRM/codecs.\n\n"
+                "Deseja adicionar mesmo assim?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+
         if self.editing_service:
             self.editing_service.name = name
             self.editing_service.url = url
             self.editing_service.icon_type = icon_type
             self.editing_service.custom_color = self.selected_color
+            self.editing_service.custom_icon_path = self.custom_icon_path
             self.editing_service.notifications_enabled = notif_enabled
             self.service_created.emit(self.editing_service)
         else:
@@ -422,6 +511,7 @@ class AddServiceDialog(QDialog):
                 url=url,
                 icon_type=icon_type,
                 custom_color=self.selected_color,
+                custom_icon_path=self.custom_icon_path,
                 notifications_enabled=notif_enabled,
             )
             self.service_created.emit(new_service)

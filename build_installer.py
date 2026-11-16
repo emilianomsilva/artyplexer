@@ -4,9 +4,9 @@ Artyplexer Installer & Standalone Binary Builder
 Uses PyInstaller to bundle Artyplexer into a standalone desktop application.
 """
 
+import os
 import sys
 import subprocess
-import shutil
 from pathlib import Path
 
 
@@ -18,7 +18,9 @@ RESOURCES_DIR = ROOT_DIR / "resources"
 def build_binary():
     print("🚀 Iniciando compilação do Artyplexer com PyInstaller...")
 
-    # PyInstaller command
+    is_windows = sys.platform.startswith("win")
+    is_linux = sys.platform.startswith("linux")
+
     cmd = [
         sys.executable,
         "-m",
@@ -27,13 +29,21 @@ def build_binary():
         "--windowed",
         "--noconfirm",
         "--clean",
-        f"--add-data={RESOURCES_DIR}:resources",
+        f"--add-data={RESOURCES_DIR}{os.pathsep}resources",
         "--collect-all=PySide6",
         "--collect-all=PySide6.QtWebEngineWidgets",
         "--collect-all=PySide6.QtWebEngineCore",
         "--collect-all=PySide6.QtSvg",
-        str(ROOT_DIR / "src" / "artyplexer" / "main.py"),
     ]
+
+    ico_path = RESOURCES_DIR / "icons" / "app.ico"
+    png_path = RESOURCES_DIR / "icons" / "app.png"
+    if is_windows and ico_path.exists():
+        cmd.append(f"--icon={ico_path}")
+    elif is_linux and png_path.exists():
+        cmd.append(f"--icon={png_path}")
+
+    cmd.append(str(ROOT_DIR / "src" / "artyplexer" / "main.py"))
 
     print(f"Executando: {' '.join(cmd)}")
     result = subprocess.run(cmd)
@@ -42,11 +52,12 @@ def build_binary():
         print("❌ Erro durante a compilação do executável.", file=sys.stderr)
         sys.exit(result.returncode)
 
+    exe_name = "artyplexer.exe" if is_windows else "artyplexer"
     print("\n✅ Compilação concluída com sucesso!")
-    print(f"📂 O executável compilado está em: {DIST_DIR / 'artyplexer' / 'artyplexer'}")
-    
-    # Generate .desktop file
-    generate_desktop_entry()
+    print(f"📂 O executável compilado está em: {DIST_DIR / 'artyplexer' / exe_name}")
+
+    if is_linux:
+        generate_desktop_entry()
 
 
 def generate_desktop_entry():

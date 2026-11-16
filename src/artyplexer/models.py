@@ -13,8 +13,9 @@ class ServiceConfig:
     id: str
     name: str
     url: str
-    icon_type: str = "generic"  # 'whatsapp', 'telegram', 'discord', 'slack', 'generic'
+    icon_type: str = "generic"  # 'whatsapp', 'telegram', 'discord', 'slack', 'appflowy', 'generic'
     custom_color: Optional[str] = None  # Hex color, e.g. '#3b82f6'
+    custom_icon_path: Optional[str] = None  # Local path to fetched favicon
     enabled: bool = True
     notifications_enabled: bool = True
     muted: bool = False
@@ -31,6 +32,7 @@ class ServiceConfig:
             url=data["url"],
             icon_type=data.get("icon_type", "generic"),
             custom_color=data.get("custom_color"),
+            custom_icon_path=data.get("custom_icon_path"),
             enabled=data.get("enabled", True),
             notifications_enabled=data.get("notifications_enabled", True),
             muted=data.get("muted", False),

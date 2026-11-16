@@ -108,9 +108,18 @@ class ServiceButton(QPushButton):
             painter.setPen(Qt.PenStyle.NoPen)
             painter.drawRoundedRect(icon_rect, 10, 10)
 
-        # 2. Render SVG Icon centered inside icon_rect with 4px padding
+        # 2. Render custom favicon or SVG Icon centered inside icon_rect with 4px padding
         svg_target = QRectF(18, 12, 32, 32)
-        if self.svg_renderer.isValid():
+        if self.service.custom_icon_path:
+            pix = QPixmap(self.service.custom_icon_path)
+            if not pix.isNull():
+                painter.drawPixmap(
+                    svg_target.toRect(),
+                    pix.scaled(32, 32, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation),
+                )
+            elif self.svg_renderer.isValid():
+                self.svg_renderer.render(painter, svg_target)
+        elif self.svg_renderer.isValid():
             self.svg_renderer.render(painter, svg_target)
 
         # 3. Muted icon indicator if service is muted
