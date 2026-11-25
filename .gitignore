@@ -1,0 +1,14 @@
+node_modules/
+dist/
+build/
+release/
+target/
+
+# Local data and tooling
+data/
+*.local
+*.log
+.codegraph/
+.vscode/
+.idea/
+.DS_Store
